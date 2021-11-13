@@ -1,0 +1,166 @@
+let fileswatch = 'html,htm,txt,json,md,woff2,php,twig' // List of files extensions for watching & hard reload
+import port from './server.js'
+import gulp from 'gulp'
+import browserSync from 'browser-sync'
+import webpackStream from 'webpack-stream'
+import gulpSass from 'gulp-sass'
+import sassLib from 'sass'
+const sass = gulpSass(sassLib)
+import autoprefixer from 'gulp-autoprefixer'
+import gcmq from 'gulp-group-css-media-queries'
+import rename from 'gulp-rename'
+import imagemin from 'gulp-imagemin'
+import del from 'del'
+import sassGlob from 'gulp-sass-glob'
+import dataForTwig from './src/data/data.js'
+import twig from 'gulp-twig'
+import plumber from 'gulp-plumber'
+import nodemon from 'gulp-nodemon'
+import flatmap from 'gulp-flatmap'
+import cleanCSS from 'gulp-clean-css'
+import webpackConfig from './webpack.config.js'
+import webpack from 'webpack'
+
+const {src, dest, parallel, series, watch} = gulp
+var paths = {
+  src: './src',
+  build: './dist',
+  data: './src/data/',
+  sass: './src/assets/scss',
+  css: './src/assets/css',
+  js: './src/assets/js',
+  images: './src/assets/images',
+  img: './src/assets/img',
+};
+
+function express(cb) {
+  let start = false
+  return nodemon({
+    script: 'server.js',
+    ext: 'twig',
+    env: {'NODE_ENV': 'development'},
+  })
+    .on('start', function () {
+      if (!start) {
+        start = true;
+        cb()
+      }
+    })
+    .on('restart', function () {
+      setTimeout(function () {
+        browserSync.reload();
+      }, 1000);
+    });
+}
+
+function browsersync(cb) {
+  browserSync.init({
+    proxy: 'localhost:' + port,
+    startPath: '/',
+    host: 'localhost',
+    port: 5000,
+    notify: false,
+    online: true,
+    logPrefix: 'Proxy to localhost:' + port
+  })
+  cb()
+}
+
+function twigBuild() {
+  return src([paths.src + '/templates/*.twig'])
+    .pipe(flatmap(function (stream, file) {
+      const fileName = file.stem
+      const twigData = {
+        ...dataForTwig[fileName],
+        url: fileName === 'index' ? '/' : `/${fileName}`
+      }
+      return stream
+        .pipe(plumber({
+          handleError: function (err) {
+            console.log(err);
+            this.emit('end');
+          }
+        }))
+        .pipe(twig({
+          extname: '.php',
+          data: twigData,
+        }))
+        .on('error', function (err) {
+          process.stderr.write(err.message + '\n');
+          this.emit('end');
+        });
+    }))
+    .pipe(dest(paths.build));
+};
+
+
+function scripts() {
+  del(paths.js + '/chunks/*', {force: true})
+  return src(paths.js + '/app.js', {allowEmpty: true})
+    .pipe(webpackStream(webpackConfig, webpack)).on('error', function handleError() {
+      this.emit('end')
+    })
+    .pipe(dest(paths.js))
+    .pipe(browserSync.reload({stream: true}))
+}
+
+function styles() {
+  return src(paths.sass + '/**/*.scss')
+    .pipe(sassGlob())
+    .pipe(sass({
+      outputStyle: 'compressed'
+    }))
+    .pipe(autoprefixer({
+      overrideBrowserslist: ['last 10 versions'],
+      grid: true,
+      cascade: false
+    }))
+    .pipe(gcmq())
+    .pipe(cleanCSS())
+    .pipe(dest(paths.css))
+    .pipe(browserSync.reload({stream: true}))
+}
+
+function minChunks() {
+  return src(paths.css + '/**/chunks.css')
+    .pipe(gcmq())
+    .pipe(cleanCSS())
+    .pipe(rename('chunks.min.css'))
+    .pipe(dest(paths.css))
+    .pipe(browserSync.reload({stream: true}))
+}
+
+function images() {
+  return src(paths.images + '/**/*')
+    .pipe(imagemin([
+      imagemin.gifsicle({interlaced: true}),
+      imagemin.mozjpeg({quality: 75, progressive: true}),
+      imagemin.optipng({optimizationLevel: 3, interlaced: true}),
+    ]))
+    .pipe(dest(paths.img))
+}
+
+function cleanimg() {
+  return del(paths.img + '/**/*', {force: true})
+}
+
+function clearDist() {
+  return del(paths.build, {force: true})
+}
+
+function createBuild() {
+  return src(paths.src + '/assets/**/*.*')
+    .pipe(dest(paths.build + '/assets'))
+}
+
+function startwatch() {
+  watch(paths.sass + '/**/*', {usePolling: true}, styles);
+  watch([paths.js + '/**/*.js', paths.js + '/**/*.mjs', '!' + paths.js + '**/app.min.js', '!' + paths.js + '/chunks/*.js'], {usePolling: true}, scripts)
+  watch(paths.images + '/**/*.{jpg,jpeg,png,webp,svg,gif}', {usePolling: true}, images)
+  watch(paths.css + '/**/chunks.css', {usePolling: true}, minChunks);
+}
+
+
+export let build = series(clearDist, styles, images, twigBuild, createBuild)
+export let prod = series(scripts, minChunks, images, styles, parallel(express))
+export default series(scripts, minChunks, images, styles, parallel(startwatch, browsersync, express))

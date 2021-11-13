@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  {% include "@root/includes/head.twig" %}  {#  внутренности тега <head> #}
+</head>
+<body>
+{% include '@root/includes/header.twig' %} {#  шапка #}
+
+{#  Контент #}
+<main>
+  {% block content %}
+  {% endblock %}
+</main>
+
+
+{% include "../includes/footer.twig" %} {#  Футер #}
+{% include "@root/includes/scripts.twig" %} {#  Подключение скриптов #}
+</body>
+</html>
