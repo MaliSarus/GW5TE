@@ -1,0 +1,14 @@
+@mixin font($fname, $fstyle, $fweight, $furl, $furl2) {
+  @font-face {
+    font-family: $fname;
+    font-style: $fstyle;
+    font-weight: $fweight;
+    src: local($fname),
+    url($furl) format('woff2'),
+    url($furl2) format('woff');
+    font-display: swap; // Uncomment to initially display system fonts
+  }
+}
+
+
+@include font('Example', normal, normal, '../fonts/font-example.woff2', '../fonts/font-example.woff');
