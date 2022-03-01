@@ -5,6 +5,7 @@ import browserSync from 'browser-sync'
 import webpackStream from 'webpack-stream'
 import gulpSass from 'gulp-sass'
 import sassLib from 'sass'
+
 const sass = gulpSass(sassLib)
 import autoprefixer from 'gulp-autoprefixer'
 import gcmq from 'gulp-group-css-media-queries'
@@ -32,6 +33,11 @@ var paths = {
   images: './src/assets/images',
   img: './src/assets/img',
 };
+
+var transferPaths = {
+  assets: '../../../../assets'
+};
+
 
 function express(cb) {
   let start = false
@@ -84,6 +90,7 @@ function twigBuild() {
         .pipe(twig({
           extname: '.php',
           data: twigData,
+          namespaces: {'root': 'src/templates/'}
         }))
         .on('error', function (err) {
           process.stderr.write(err.message + '\n');
@@ -95,8 +102,8 @@ function twigBuild() {
 
 
 function scripts() {
-  del(paths.js + '/chunks/*', {force: true})
-  return src(paths.js + '/app.js', {allowEmpty: true})
+  del([paths.js + '/chunks/**', paths.js + '/vendors/**'], {force: true})
+  return src(paths.js + '/main.js', {allowEmpty: true})
     .pipe(webpackStream(webpackConfig, webpack)).on('error', function handleError() {
       this.emit('end')
     })
@@ -155,12 +162,29 @@ function createBuild() {
 
 function startwatch() {
   watch(paths.sass + '/**/*', {usePolling: true}, styles);
-  watch([paths.js + '/**/*.js', paths.js + '/**/*.mjs', '!' + paths.js + '**/app.min.js', '!' + paths.js + '/chunks/*.js'], {usePolling: true}, scripts)
+  watch(
+    [
+      paths.js + '/**/*.js',
+      paths.js + '/**/*.mjs',
+      '!' + paths.js + '**/main.min.js',
+      '!' + paths.js + '**/vendors.min.js',
+      '!' + paths.js + '/vendors/**',
+      '!' + paths.js + '/chunks/**'
+    ],
+    {usePolling: true},
+    scripts
+  )
   watch(paths.images + '/**/*.{jpg,jpeg,png,webp,svg,gif}', {usePolling: true}, images)
   watch(paths.css + '/**/chunks.css', {usePolling: true}, minChunks);
+}
+
+function transferAssets(){
+  return src(paths.src + '/assets/**/*.*')
+    .pipe(dest(transferPaths.assets))
 }
 
 
 export let build = series(clearDist, styles, images, twigBuild, createBuild)
 export let prod = series(scripts, minChunks, images, styles, parallel(express))
-export default series(scripts, minChunks, images, styles, parallel(startwatch, browsersync, express))
+export let transfer = series(scripts, minChunks, images, styles, transferAssets)
+export default series(scripts, minChunks, images, styles,express, parallel(startwatch, browsersync))

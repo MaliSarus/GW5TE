@@ -3,11 +3,10 @@ import express from 'express'
 import path from 'path'
 import fs from 'fs'
 
-
-const app = express();
+export const app = express();
 
 const pathToChunk = './src/assets/css/chunks.min.css'
-const pathToVendors = './src/assets/js/chunks/vendors.js'
+const pathToVendors = './src/assets/js/vendors.min.js'
 
 const paths = {
   src: './src',
@@ -21,6 +20,15 @@ const paths = {
 };
 import dataForTwig from './src/data/data.js'
 
+let vendorFiles;
+fs.readdir(paths.js + '/vendors', function (err, files) {
+  //handling error
+  if (err) {
+    return console.log('Unable to scan directory: ' + err);
+  }
+
+  vendorFiles = files
+});
 
 Twig.cache(false);
 app.set('view engine', 'twig');
@@ -41,7 +49,7 @@ app.get(['/:fileName'], (req, res) => {
       chunk = true
     }
   }
-  catch(err){
+  catch (err) {
     console.log('Chunks not exist')
   }
 
@@ -51,7 +59,7 @@ app.get(['/:fileName'], (req, res) => {
       vendors = true
     }
   }
-  catch(err){
+  catch (err) {
     console.log('Vendors not exist')
   }
 
@@ -62,7 +70,8 @@ app.get(['/:fileName'], (req, res) => {
       ...dataForTwig[fileName],
       url: '/' + fileName,
       chunk,
-      vendors
+      vendors,
+      vendorFiles
     }
   );
 });
@@ -73,7 +82,7 @@ app.get('/', function (req, res) {
       chunk = true
     }
   }
-  catch(err){
+  catch (err) {
     console.log('Chunks not exist')
   }
 
@@ -83,7 +92,7 @@ app.get('/', function (req, res) {
       vendors = true
     }
   }
-  catch(err){
+  catch (err) {
     console.log('Vendors not exist')
   }
 
@@ -93,10 +102,12 @@ app.get('/', function (req, res) {
       ...dataForTwig.index,
       url: '/',
       chunk,
-      vendors
+      vendors,
+      vendorFiles
     }
   );
 });
+
 
 const listener = app.listen();
 const port = listener.address().port;
