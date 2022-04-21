@@ -5,7 +5,9 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "cross-env NODE_ENV=development gulp",
+    "prod": "cross-env NODE_ENV=production gulp"
   },
   "author": "",
   "license": "ISC",
@@ -56,6 +58,7 @@
     "@lottiefiles/lottie-player": "^1.4.4",
     "accordion-js": "^3.1.1",
     "axios": "^0.24.0",
+    "cross-env": "^7.0.3",
     "fslightbox": "^3.3.1",
     "mitt": "^3.0.0",
     "rellax": "^1.12.1",

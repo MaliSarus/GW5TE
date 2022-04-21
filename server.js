@@ -108,6 +108,7 @@ app.get('/', function (req, res) {
   );
 });
 
+app.use('/api', router)
 
 const listener = app.listen();
 const port = listener.address().port;

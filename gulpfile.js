@@ -1,5 +1,4 @@
 let fileswatch = 'html,htm,txt,json,md,woff2,php,twig' // List of files extensions for watching & hard reload
-import port from './server.js'
 import gulp from 'gulp'
 import browserSync from 'browser-sync'
 import webpackStream from 'webpack-stream'
@@ -59,7 +58,10 @@ function express(cb) {
     });
 }
 
-function browsersync(cb) {
+async function browsersync(cb) {
+  const module = await import('./server.js')
+  const port = module.default;
+
   browserSync.init({
     proxy: 'localhost:' + port,
     startPath: '/',
@@ -102,16 +104,33 @@ function twigBuild() {
 
 
 function scripts() {
-  del([paths.js + '/chunks/**', paths.js + '/vendors/**'], {force: true})
+  return scriptsNoBS()
+    .pipe(browserSync.reload({stream: true}))
+}
+
+function cleanAll(){
+  return del([
+    paths.js + '/chunks/**',
+    paths.js + '/vendors/**',
+    paths.css + '/**/*',
+    paths.img + '/**/*'
+  ], {force: true})
+}
+
+function scriptsNoBS() {
   return src(paths.js + '/main.js', {allowEmpty: true})
     .pipe(webpackStream(webpackConfig, webpack)).on('error', function handleError() {
       this.emit('end')
     })
     .pipe(dest(paths.js))
-    .pipe(browserSync.reload({stream: true}))
 }
 
 function styles() {
+  return stylesNoBS()
+    .pipe(browserSync.reload({stream: true}))
+}
+
+function stylesNoBS() {
   return src(paths.sass + '/**/*.scss')
     .pipe(sassGlob())
     .pipe(sass({
@@ -125,16 +144,19 @@ function styles() {
     .pipe(gcmq())
     .pipe(cleanCSS())
     .pipe(dest(paths.css))
-    .pipe(browserSync.reload({stream: true}))
 }
 
 function minChunks() {
+  return minChunksNoBS()
+    .pipe(browserSync.reload({stream: true}))
+}
+
+function minChunksNoBS() {
   return src(paths.css + '/**/chunks.css')
     .pipe(gcmq())
     .pipe(cleanCSS())
     .pipe(rename('chunks.min.css'))
     .pipe(dest(paths.css))
-    .pipe(browserSync.reload({stream: true}))
 }
 
 function images() {
@@ -147,9 +169,6 @@ function images() {
     .pipe(dest(paths.img))
 }
 
-function cleanimg() {
-  return del(paths.img + '/**/*', {force: true})
-}
 
 function clearDist() {
   return del(paths.build, {force: true})
@@ -184,7 +203,6 @@ function transferAssets(){
 }
 
 
-export let build = series(clearDist, styles, images, twigBuild, createBuild)
-export let prod = series(scripts, minChunks, images, styles, parallel(express))
-export let transfer = series(scripts, minChunks, images, styles, transferAssets)
-export default series(scripts, minChunks, images, styles,express, parallel(startwatch, browsersync))
+export let build = series(cleanAll,clearDist, styles, images, twigBuild, createBuild)
+export let prod = series(cleanAll, styles, scripts, minChunks, images, parallel(express))
+export default series(cleanAll, styles, scripts, minChunks, images, express, parallel(startwatch, browsersync))

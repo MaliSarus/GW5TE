@@ -4,6 +4,7 @@ import webpack from 'webpack'
 import TerserPlugin from 'terser-webpack-plugin'
 import {VueLoaderPlugin} from "vue-loader";
 
+const IS_PROD = process.env.NODE_ENV === 'production'
 const {Compiler} = webpack
 const config = {
   entry: './src/assets/js/main.js',
@@ -12,7 +13,7 @@ const config = {
     chunkFilename: './chunks/[name].js',
     publicPath: '/assets/js/'
   },
-  mode: 'production',
+  mode: IS_PROD ? 'production' : 'development',
 
   plugins: [
     new MiniCssExtractPlugin({
@@ -82,7 +83,8 @@ const config = {
         },
       },
     },
-  }
+  },
+  devtool: IS_PROD ? false : 'eval'
 }
 
 export default config
